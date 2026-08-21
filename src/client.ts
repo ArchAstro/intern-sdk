@@ -1,6 +1,5 @@
 // Copyright (c) 2026 ArchAstro Inc. All Rights Reserved.
 
-import { isMeImplementation } from "./plugins/me/implementation.js";
 import { MePluginClient, type MePlugin } from "./plugins/me/plugin.js";
 import { resolveInjectedRuntime } from "./runtime/global.js";
 import { RuntimeProvider } from "./runtime/provider.js";
@@ -22,8 +21,6 @@ export default class Client {
   }
 
   get me(): MePlugin {
-    return (this.#me ??= new MePluginClient(() =>
-      this.#runtime.require("me", isMeImplementation),
-    ));
+    return (this.#me ??= new MePluginClient(this.#runtime));
   }
 }

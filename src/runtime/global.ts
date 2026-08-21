@@ -8,13 +8,33 @@ import {
 import {
   INTERN_PROTOCOL_VERSION,
   type InternHost,
+  type LegacyPluginFacade,
   type RuntimeResolver,
+  type RuntimeTransport,
 } from "./types.js";
 
 declare global {
   // Intern hosts inject this protocol before client operations execute.
   // eslint-disable-next-line no-var
   var intern: InternHost | undefined;
+}
+
+/** Generic compatibility bridge for already-compiled protocol-v1 clients. */
+export function createLegacyPluginFacade(
+  transport: RuntimeTransport,
+): LegacyPluginFacade {
+  return new Proxy(Object.create(null) as LegacyPluginFacade, {
+    get(_target, binding) {
+      if (typeof binding !== "string") return undefined;
+      return new Proxy(Object.create(null) as LegacyPluginFacade[string], {
+        get(_plugin, operation) {
+          if (typeof operation !== "string") return undefined;
+          return (input?: unknown) =>
+            transport.invoke(binding, operation, input);
+        },
+      });
+    },
+  });
 }
 
 export function resolveInjectedRuntime(): unknown {

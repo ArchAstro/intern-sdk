@@ -5,16 +5,19 @@ import Client, {
 } from "../src/index.js";
 import {
   INTERN_PROTOCOL_VERSION,
+  RuntimeProvider,
   createRuntimeHost,
   type InternRuntime,
   type MeImplementation,
+  type RuntimeTransport,
 } from "../src/runtime/index.js";
 
 declare const implementation: MeImplementation;
+declare const transport: RuntimeTransport;
 
 const runtime = {
   protocolVersion: INTERN_PROTOCOL_VERSION,
-  plugins: { me: implementation },
+  transport,
 } satisfies InternRuntime;
 
 const client = new Client({ runtime });
@@ -29,6 +32,12 @@ const picture: ProfilePictureUpload = {
 
 void current;
 void host;
+void implementation;
+void new RuntimeProvider(() => runtime).invoke<string>(
+  "example",
+  "read",
+  undefined,
+);
 void client.me.update(update);
 void client.me.updateProfilePicture(picture);
 

@@ -12,10 +12,15 @@ import Client, {
 } from "../src/index.js";
 import {
   INTERN_PROTOCOL_VERSION,
+  RuntimeProvider,
   createRuntimeHost,
+  decodeRuntimeWireValue,
+  encodeRuntimeWireValue,
   type InternRuntime,
+  type RuntimeWireValue,
 } from "../src/runtime/index.js";
 import {
+  MemoryRuntimeTransport,
   createMemorySandbox,
   installInjectedHost,
   installInjectedRuntime,
@@ -74,6 +79,47 @@ describe("Client", () => {
     expect((await client.me.get()).name).toBe("First");
     active = second.runtime;
     expect((await client.me.get()).name).toBe("Second");
+  });
+
+  test("a transitional host serves old plugin-object clients and new transport clients", async () => {
+    const sandbox = createMemorySandbox({ me: user("Ada") });
+    expect(sandbox.host.protocolVersion).toBe(1);
+    expect(sandbox.runtime.protocolVersion).toBe(1);
+    const legacyMe = sandbox.runtime.plugins?.me;
+    if (!legacyMe) throw new Error("legacy facade missing");
+
+    await expect(legacyMe.get?.()).resolves.toMatchObject({ name: "Ada" });
+    await expect(
+      new Client({ runtime: sandbox.runtime }).me.get(),
+    ).resolves.toMatchObject({ name: "Ada" });
+  });
+
+  test("a second typed plugin wrapper uses the shared transport without runtime dispatch changes", async () => {
+    const sandbox = createMemorySandbox({ me: user("Ada") });
+    const calls: Array<[string, unknown]> = [];
+    const runtime: InternRuntime = {
+      protocolVersion: INTERN_PROTOCOL_VERSION,
+      transport: new MemoryRuntimeTransport({
+        me: sandbox.me,
+        greeting: {
+          render(input: unknown) {
+            calls.push(["render", input]);
+            const { name } = input as { name: string };
+            return { message: `Hello, ${name}` };
+          },
+        },
+      }),
+    };
+    const client = new Client({ runtime });
+    const greeting = new GreetingPluginClient(
+      new RuntimeProvider(() => runtime),
+    );
+
+    await expect(client.me.get()).resolves.toMatchObject({ name: "Ada" });
+    await expect(greeting.render("Grace")).resolves.toEqual({
+      message: "Hello, Grace",
+    });
+    expect(calls).toEqual([["render", { name: "Grace" }]]);
   });
 
   test("new Client isolates concurrent SSR requests through the host resolver", async () => {
@@ -141,7 +187,7 @@ describe("Client", () => {
 
     const wrongVersion = {
       protocolVersion: 2,
-      plugins: {},
+      transport: { version: 1, invoke: async () => undefined },
     } as unknown as InternRuntime;
     await expect(
       new Client({ runtime: wrongVersion }).me.get(),
@@ -156,7 +202,7 @@ describe("Client", () => {
 
     const missing: InternRuntime = {
       protocolVersion: INTERN_PROTOCOL_VERSION,
-      plugins: {},
+      transport: new MemoryRuntimeTransport({}),
     };
     await expect(
       new Client({ runtime: missing }).me.get(),
@@ -164,13 +210,51 @@ describe("Client", () => {
 
     const malformed = {
       protocolVersion: INTERN_PROTOCOL_VERSION,
-      plugins: { me: {} },
+      transport: new MemoryRuntimeTransport({ me: {} }),
     } as unknown as InternRuntime;
     await expect(
       new Client({ runtime: malformed }).me.get(),
     ).rejects.toBeInstanceOf(PluginContractError);
+
+    const serializedFailure: InternRuntime = {
+      protocolVersion: INTERN_PROTOCOL_VERSION,
+      transport: {
+        version: 1,
+        invoke: async () => Promise.reject({ code: "plugin_unavailable" }),
+      },
+    };
+    await expect(
+      new Client({ runtime: serializedFailure }).me.get(),
+    ).rejects.toBeInstanceOf(PluginUnavailableError);
+  });
+
+  test("the generic wire codec preserves nested binary plugin input", () => {
+    const input = {
+      name: "Ada",
+      profilePicture: {
+        bytes: new Uint8Array([0, 127, 255]),
+        contentType: "image/png",
+        filename: "ada.png",
+      },
+    };
+    const encoded = encodeRuntimeWireValue(input);
+    const parsed = JSON.parse(JSON.stringify(encoded)) as RuntimeWireValue;
+
+    expect(decodeRuntimeWireValue(parsed)).toEqual(input);
   });
 });
+
+class GreetingPluginClient {
+  readonly #runtime: RuntimeProvider;
+
+  constructor(runtime: RuntimeProvider) {
+    this.#runtime = runtime;
+  }
+
+  render(name: string): Promise<{ message: string }> {
+    return this.#runtime.invoke("greeting", "render", { name });
+  }
+}
 
 function user(name: string): CurrentUser {
   return {

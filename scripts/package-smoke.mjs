@@ -52,9 +52,9 @@ if ((await client.me.get()).name !== "Ada") throw new Error("default client impo
   await writeFile(
     join(consumer, "smoke.ts"),
     `import Client, { type CurrentUser } from "@archastro/intern-sdk";
-import { createRuntimeHost, type InternRuntime, type MeImplementation, INTERN_PROTOCOL_VERSION } from "@archastro/intern-sdk/runtime";
-declare const implementation: MeImplementation;
-const runtime = { protocolVersion: INTERN_PROTOCOL_VERSION, plugins: { me: implementation } } satisfies InternRuntime;
+import { createRuntimeHost, type InternRuntime, type RuntimeTransport, INTERN_PROTOCOL_VERSION } from "@archastro/intern-sdk/runtime";
+declare const transport: RuntimeTransport;
+const runtime = { protocolVersion: INTERN_PROTOCOL_VERSION, transport } satisfies InternRuntime;
 globalThis.intern = createRuntimeHost(() => runtime);
 const client = new Client();
 const current: Promise<CurrentUser> = client.me.get();

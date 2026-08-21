@@ -31,8 +31,20 @@ application continues to use `new Client()` in both places.
 ```ts
 import {
   createRuntimeHost,
+  INTERN_PROTOCOL_VERSION,
+  INTERN_TRANSPORT_VERSION,
   type InternRuntime,
 } from "@archastro/intern-sdk/runtime";
+
+const currentRuntime: InternRuntime = {
+  protocolVersion: INTERN_PROTOCOL_VERSION,
+  transport: {
+    version: INTERN_TRANSPORT_VERSION,
+    async invoke(binding, operation, input) {
+      return hostCall({ binding, operation, input });
+    },
+  },
+};
 
 globalThis.intern = createRuntimeHost(() => currentRuntime);
 ```
@@ -47,9 +59,23 @@ const sandbox = createMemorySandbox({ me: seededUser });
 const client = new Client({ runtime: sandbox.runtime });
 ```
 
-Runtime hosts import implementation contracts from
-`@archastro/intern-sdk/runtime`. Application code imports only the client and
+The injected protocol is plugin-agnostic: hosts implement only
+`RuntimeTransport.invoke(binding, operation, input)`. Typed plugin wrappers map
+their public methods onto that transport, so adding a plugin does not add
+plugin-specific methods or dispatch branches to the injected host. Local tools
+may still use implementation contracts and the in-memory dispatcher from
+`@archastro/intern-sdk/testing`. Application code imports only the client and
 public plugin types from the package root.
+
+The transport is an additive capability within the deployed protocol-v1 host
+envelope. Hosts roll out `transport` first while retaining a generic legacy
+plugin facade for already-compiled sites; transport-aware SDKs can ship after
+that. The transport has its own version, so future wire changes do not silently
+reinterpret calls made through the stable host envelope.
+
+Use `encodeRuntimeWireValue` and `decodeRuntimeWireValue` at JSON boundaries.
+The codec preserves `Uint8Array` profile-picture bytes and rejects unsupported
+or cyclic values rather than relying on JSON's lossy typed-array encoding.
 
 ## Releases
 
