@@ -50,3 +50,32 @@ const client = new Client({ runtime: sandbox.runtime });
 Runtime hosts import implementation contracts from
 `@archastro/intern-sdk/runtime`. Application code imports only the client and
 public plugin types from the package root.
+
+## Releases
+
+The initial `0.1.0` publication is a one-time authenticated seed because npm
+requires the package to exist before a trusted publisher can be registered.
+After that seed, configure the package's GitHub Actions publisher:
+
+```sh
+npm trust github @archastro/intern-sdk \
+  --repo ArchAstro/intern-sdk \
+  --file publish.yml \
+  --env npm-release \
+  --allow-publish
+```
+
+Subsequent releases use the manual `release` workflow on `main`. It runs the
+full package gate, opens and rebase-merges a version-only PR, tags the exact
+merged commit, and dispatches `publish.yml`. The publish job uses npm OIDC,
+verifies the tag and package version agree, refuses an existing version,
+publishes publicly with automatic provenance, and creates the GitHub Release.
+
+The npm trusted publisher must match these values exactly:
+
+- Package: `@archastro/intern-sdk`
+- GitHub organization: `ArchAstro`
+- Repository: `intern-sdk`
+- Workflow: `publish.yml`
+- Environment: `npm-release`
+- Allowed action: `npm publish`
