@@ -1,9 +1,12 @@
 // Copyright (c) 2026 ArchAstro Inc. All Rights Reserved.
 
-import type { MeImplementation } from "./implementation.js";
+import type { RuntimeProvider } from "../../runtime/provider.js";
 import type { CurrentUser, MeUpdate, ProfilePictureUpload } from "./types.js";
 
-type ImplementationProvider = () => MeImplementation;
+interface MeOperations {
+  get: { input: undefined; output: CurrentUser };
+  update: { input: MeUpdate; output: CurrentUser };
+}
 
 export interface MePlugin {
   get(): Promise<CurrentUser>;
@@ -15,24 +18,35 @@ export interface MePlugin {
 
 /** @internal */
 export class MePluginClient implements MePlugin {
-  readonly #implementation: ImplementationProvider;
+  readonly #runtime: RuntimeProvider;
 
   /** @internal Client owns plugin construction. */
-  constructor(implementation: ImplementationProvider) {
-    this.#implementation = implementation;
+  constructor(runtime: RuntimeProvider) {
+    this.#runtime = runtime;
   }
 
   async get(): Promise<CurrentUser> {
-    return this.#implementation().get();
+    return this.#invoke("get", undefined);
   }
 
   async update(input: MeUpdate): Promise<CurrentUser> {
-    return this.#implementation().update(input);
+    return this.#invoke("update", input);
   }
 
   async updateProfilePicture(
     profilePicture: ProfilePictureUpload | null,
   ): Promise<CurrentUser> {
     return this.update({ profilePicture });
+  }
+
+  #invoke<Operation extends keyof MeOperations>(
+    operation: Operation,
+    input: MeOperations[Operation]["input"],
+  ): Promise<MeOperations[Operation]["output"]> {
+    return this.#runtime.invoke<MeOperations[Operation]["output"]>(
+      "me",
+      operation,
+      input,
+    );
   }
 }

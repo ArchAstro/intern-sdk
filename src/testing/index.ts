@@ -5,6 +5,7 @@ export {
   createMemorySandbox,
   installInjectedHost,
   installInjectedRuntime,
+  MemoryRuntimeTransport,
   type MemorySandbox,
   type MemorySandboxOptions,
 } from "./memory-runtime.js";
