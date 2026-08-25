@@ -11,6 +11,11 @@ const client = new Client();
 const current = await client.me.get();
 
 await client.me.update({ name: "Ada Lovelace" });
+
+await client.d1.exec(
+  "CREATE TABLE IF NOT EXISTS visits (id INTEGER PRIMARY KEY)",
+);
+const visits = await client.d1.prepare("SELECT * FROM visits").all();
 ```
 
 The site commits only this client code. Local MCP previews and production hosts
@@ -55,7 +60,7 @@ Tests and local tools can also supply a runtime explicitly:
 import Client from "@archastro/intern-sdk";
 import { createMemorySandbox } from "@archastro/intern-sdk/testing";
 
-const sandbox = createMemorySandbox({ me: seededUser });
+const sandbox = createMemorySandbox({ me: seededUser, d1: true });
 const client = new Client({ runtime: sandbox.runtime });
 ```
 
@@ -64,8 +69,13 @@ The injected protocol is plugin-agnostic: hosts implement only
 their public methods onto that transport, so adding a plugin does not add
 plugin-specific methods or dispatch branches to the injected host. Local tools
 may still use implementation contracts and the in-memory dispatcher from
-`@archastro/intern-sdk/testing`. Application code imports only the client and
-public plugin types from the package root.
+`@archastro/intern-sdk/testing`.
+
+Plugins are opt-in. A host that does not provide `d1` leaves `client.d1`
+unavailable; it does not silently create or connect a database.
+
+Application code imports only the client and public plugin types from the
+package root.
 
 The transport is an additive capability within the deployed protocol-v1 host
 envelope. Hosts roll out `transport` first while retaining a generic legacy

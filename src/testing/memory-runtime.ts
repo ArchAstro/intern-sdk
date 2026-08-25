@@ -15,9 +15,11 @@ import {
   INTERN_PROTOCOL_VERSION,
   INTERN_TRANSPORT_VERSION,
 } from "../runtime/types.js";
+import { MemoryD1Implementation } from "./memory-d1.js";
 import { MemoryMeImplementation } from "./memory-me.js";
 
 export interface MemorySandboxOptions {
+  d1?: boolean;
   me: CurrentUser;
 }
 
@@ -25,6 +27,7 @@ export interface MemorySandbox {
   readonly host: InternHost;
   readonly runtime: InternRuntime;
   readonly transport: MemoryRuntimeTransport;
+  readonly d1: MemoryD1Implementation | undefined;
   readonly me: MemoryMeImplementation;
 }
 
@@ -56,13 +59,18 @@ export function createMemorySandbox(
   options: MemorySandboxOptions,
 ): MemorySandbox {
   const me = new MemoryMeImplementation(options.me);
-  const transport = new MemoryRuntimeTransport({ me });
+  const d1 = options.d1 ? new MemoryD1Implementation() : undefined;
+  const transport = new MemoryRuntimeTransport({
+    me,
+    ...(d1 === undefined ? {} : { d1 }),
+  });
   const runtime: InternRuntime = {
     protocolVersion: INTERN_PROTOCOL_VERSION,
     transport,
     plugins: createLegacyPluginFacade(transport),
   };
   return {
+    d1,
     me,
     transport,
     runtime,
