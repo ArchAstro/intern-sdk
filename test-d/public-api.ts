@@ -1,5 +1,6 @@
 import Client, {
   type CurrentUser,
+  type D1Result,
   type MeUpdate,
   type ProfilePictureUpload,
 } from "../src/index.js";
@@ -38,6 +39,11 @@ void new RuntimeProvider(() => runtime).invoke<string>(
   "read",
   undefined,
 );
+const rows: Promise<D1Result<{ id: number }>> = client.d1
+  .prepare("SELECT id FROM rows WHERE id = ?")
+  .bind(1)
+  .all<{ id: number }>();
+void rows;
 void client.me.update(update);
 void client.me.updateProfilePicture(picture);
 

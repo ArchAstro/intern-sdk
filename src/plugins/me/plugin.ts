@@ -16,6 +16,12 @@ export interface MePlugin {
   ): Promise<CurrentUser>;
 }
 
+declare module "../../client.js" {
+  interface Client {
+    readonly me: MePlugin;
+  }
+}
+
 /** @internal */
 export class MePluginClient implements MePlugin {
   readonly #runtime: RuntimeProvider;
