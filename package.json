@@ -1,6 +1,6 @@
 {
   "name": "@archastro/intern-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Typed client and runtime plugin contract for Intern sites",
   "type": "module",
   "sideEffects": false,
