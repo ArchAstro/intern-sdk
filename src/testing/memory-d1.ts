@@ -1,6 +1,7 @@
 // Copyright (c) 2026 ArchAstro Inc. All Rights Reserved.
 
-import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+import { createRequire } from "node:module";
+import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import type {
   D1Implementation,
   D1ImplementationValue,
@@ -9,10 +10,15 @@ import type {
 } from "../plugins/d1/implementation.js";
 import type { D1ExecResult, D1Result, D1Row } from "../plugins/d1/types.js";
 
+const require = createRequire(import.meta.url);
+
 export class MemoryD1Implementation implements D1Implementation {
   readonly #database: DatabaseSync;
 
   constructor() {
+    const { DatabaseSync } = require("node:sqlite") as {
+      DatabaseSync: new (location: string) => DatabaseSync;
+    };
     this.#database = new DatabaseSync(":memory:");
   }
 
